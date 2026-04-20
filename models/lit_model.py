@@ -15,7 +15,6 @@ class KeystrokeLitModel(pl.LightningModule):
         t_0: float = 2500,
         lr: float = 1e-3,
         l1_lambda: float = 0.0,
-        # miner: Optional[BaseMiner] = None,
     ):
         super().__init__()
         self.model = torch.compile(model, mode='max-autotune-no-cudagraphs')

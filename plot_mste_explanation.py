@@ -64,14 +64,9 @@ def fmt_period(p):
         return f'{p * 1000:.0f} ms'
     return f'{p:.2f} s'
 
-# Select 4 representative frequencies covering behavioral time scales
-# Effective HT periods (ms): ~2, ~6, ~17, ~79, ~229, ~622, ~1707, ~5481
-# Chosen to match paper annotations: motor noise, finger alternation,
-# word boundary, sentence boundary
-# Indices [0, 2, 5, 6] → ~2 ms, ~17 ms, ~622 ms, ~1.7 s
-SHOW_IDX    = [0, 2, 5, 6]
-show_colors = ['#d62728', '#ff7f0e', '#1f77b4', '#2ca02c']
-annotations = ['motor noise', 'finger alternation', 'word boundary', 'sentence boundary']
+# Show every learned HT frequency.
+SHOW_IDX    = list(range(len(ht_per)))
+show_colors = plt.cm.turbo(np.linspace(0.05, 0.95, len(SHOW_IDX)))
 
 # ── Typography (IEEE double-column = 7.16 in full width) ─────────────────────
 plt.rcParams.update({
@@ -94,6 +89,7 @@ plt.rcParams.update({
 
 CBAR_SIZE = '4%'
 CBAR_PAD  = '2%'
+SHOW_PLOT_B = False
 
 def _add_dummy_cbar(ax):
     make_axes_locatable(ax).append_axes('right', size=CBAR_SIZE, pad=CBAR_PAD).set_visible(False)
@@ -104,9 +100,14 @@ def _tighten_gap(ax_top, ax_bot, frac):
     gap = pt.y0 - (pb.y0 + pb.height)
     ax_bot.set_position([pb.x0, pb.y0 + gap * frac, pb.width, pb.height])
 
-fig = plt.figure(figsize=(7.16, 5.5))
-gs  = gridspec.GridSpec(3, 1, figure=fig,
-                        height_ratios=[1.4, 1.7, 1.8], hspace=0.85)
+freq_panel_height = max(1.8, 0.18 * len(SHOW_IDX))
+fig_height = 2.2 + freq_panel_height + (1.2 if SHOW_PLOT_B else 0)
+fig = plt.figure(figsize=(7.16, fig_height))
+height_ratios = [1.4, freq_panel_height]
+if SHOW_PLOT_B:
+    height_ratios.insert(1, 1.7)
+gs  = gridspec.GridSpec(len(height_ratios), 1, figure=fig,
+                        height_ratios=height_ratios, hspace=0.85)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # (a) Raw hold time
@@ -140,46 +141,47 @@ ax_a.grid(axis='y', lw=0.2, ls='--', color='#cccccc', zorder=0)
 # Panel title matches paper eq. (6):
 #   MSTE(HT_k) = [sin(ω_j · HT_k), cos(ω_j · HT_k)]  with ω_j = σ(ŵ_j)·(2π/p_j)
 # ─────────────────────────────────────────────────────────────────────────────
-ax_b = fig.add_subplot(gs[1])
-cax_b = make_axes_locatable(ax_b).append_axes('right', size=CBAR_SIZE, pad=CBAR_PAD)
+if SHOW_PLOT_B:
+    ax_b = fig.add_subplot(gs[1])
+    cax_b = make_axes_locatable(ax_b).append_axes('right', size=CBAR_SIZE, pad=CBAR_PAD)
 
-ht_mste_show = np.vstack([ht_mste[2*idx:2*idx+2] for idx in SHOW_IDX])
-N_show = len(SHOW_IDX)
-vabs = np.abs(ht_mste_show).max()
-im = ax_b.imshow(
-    ht_mste_show, aspect='auto', cmap='RdBu_r', vmin=-vabs, vmax=vabs,
-    extent=[-0.5, n - 0.5, -0.5, 2*N_show - 0.5], origin='lower'
-)
-for i in range(1, N_show):
-    ax_b.axhline(2*i - 0.5, color='white', lw=0.5)
+    ht_mste_show = np.vstack([ht_mste[2*idx:2*idx+2] for idx in SHOW_IDX])
+    N_show = len(SHOW_IDX)
+    vabs = np.abs(ht_mste_show).max()
+    im = ax_b.imshow(
+        ht_mste_show, aspect='auto', cmap='RdBu_r', vmin=-vabs, vmax=vabs,
+        extent=[-0.5, n - 0.5, -0.5, 2*N_show - 0.5], origin='lower'
+    )
+    for i in range(1, N_show):
+        ax_b.axhline(2*i - 0.5, color='white', lw=0.5)
 
-ax_b.set_yticks([2*i + 0.5 for i in range(N_show)])
-ax_b.set_yticklabels([fmt_period(ht_per[i]) for i in SHOW_IDX], fontsize=6.0)
-ax_b.set_ylabel(r'Learned period $p^*_j$', labelpad=3)
-ax_b.set_xlim(-0.5, n - 0.5)
-ax_b.set_title(
-    r'(b)  MSTE: $[\sin(\omega_j\,\mathrm{HT}_k),\,\cos(\omega_j\,\mathrm{HT}_k)]$,'
-    r'  $\omega_j = \sigma(\hat{w}_j)\cdot(2\pi/p_j)$',
-    pad=3, loc='left')
-ax_b.spines[['top', 'right', 'bottom', 'left']].set_visible(False)
-ax_b.tick_params(labelbottom=False)
-ax_b.axvline(peak_i, color='#d62728', lw=0.8, ls='--', alpha=0.55, zorder=3)
+    ax_b.set_yticks([2*i + 0.5 for i in range(N_show)])
+    ax_b.set_yticklabels([fmt_period(ht_per[i]) for i in SHOW_IDX], fontsize=6.0)
+    ax_b.set_ylabel(r'Learned period $p^*_j$', labelpad=3)
+    ax_b.set_xlim(-0.5, n - 0.5)
+    ax_b.set_title(
+        r'(b)  MSTE: $[\sin(\omega_j\,\mathrm{HT}_k),\,\cos(\omega_j\,\mathrm{HT}_k)]$,'
+        r'  $\omega_j = \sigma(\hat{w}_j)\cdot(2\pi/p_j)$',
+        pad=3, loc='left')
+    ax_b.spines[['top', 'right', 'bottom', 'left']].set_visible(False)
+    ax_b.tick_params(labelbottom=False)
+    ax_b.axvline(peak_i, color='#d62728', lw=0.8, ls='--', alpha=0.55, zorder=3)
 
-cbar = fig.colorbar(im, cax=cax_b)
-cbar.set_ticks([-vabs, 0, vabs])
-cbar.set_ticklabels([f'{-vabs:.2f}', '0', f'{vabs:.2f}'])
-cbar.ax.tick_params(labelsize=6)
-cbar.set_label('Encoding value', fontsize=6, labelpad=2)
+    cbar = fig.colorbar(im, cax=cax_b)
+    cbar.set_ticks([-vabs, 0, vabs])
+    cbar.set_ticklabels([f'{-vabs:.2f}', '0', f'{vabs:.2f}'])
+    cbar.ax.tick_params(labelsize=6)
+    cbar.set_label('Encoding value', fontsize=6, labelpad=2)
 
-for k in range(N_show):
-    ax_b.plot(-1.1, 2*k + 0.5, marker='|', ms=6, mew=2.0,
-              color=show_colors[k], clip_on=False, zorder=5)
+    for k in range(N_show):
+        ax_b.plot(-1.1, 2*k + 0.5, marker='|', ms=6, mew=2.0,
+                  color=show_colors[k], clip_on=False, zorder=5)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# (c) Four representative sin/cos components
+# (c) All learned sin/cos components
 # Amplitude-weighted: MSTE row = σ(â_j) · sin/cos(ω_j · HT_k)
 # ─────────────────────────────────────────────────────────────────────────────
-ax_c = fig.add_subplot(gs[2])
+ax_c = fig.add_subplot(gs[2 if SHOW_PLOT_B else 1])
 _add_dummy_cbar(ax_c)
 
 offset_step = 2.0
@@ -208,15 +210,10 @@ ax_c.legend(handles=[
 ax_c.set_xlim(-0.5, n - 0.5)
 ax_c.set_ylim(y_lo, y_hi)
 ax_c.set_yticks([k * offset_step for k in range(len(SHOW_IDX))])
-ax_c.set_yticklabels([fmt_period(ht_per[i]) for i in SHOW_IDX], fontsize=6.5)
+ytick_fontsize = 4.8 if len(SHOW_IDX) > 12 else 6.5
+ax_c.set_yticklabels([fmt_period(ht_per[i]) for i in SHOW_IDX], fontsize=ytick_fontsize)
 for k, lbl in enumerate(ax_c.get_yticklabels()):
     lbl.set_color(show_colors[k])
-
-for k, idx in enumerate(SHOW_IDX):
-    base = k * offset_step
-    ax_c.text(1.01, (base - y_lo) / (y_hi - y_lo),
-              annotations[k], fontsize=6, color=show_colors[k],
-              ha='left', va='center', transform=ax_c.transAxes)
 
 ax_c.set_xlabel('Keystroke index $k$')
 ax_c.set_ylabel('Encoding amplitude', labelpad=3)
@@ -227,9 +224,13 @@ ax_c.spines[['top', 'right']].set_visible(False)
 ax_c.grid(axis='x', lw=0.2, ls=':', color='#cccccc', zorder=0)
 
 # ─────────────────────────────────────────────────────────────────────────────
-fig.align_ylabels([ax_a, ax_b, ax_c])
-_tighten_gap(ax_a, ax_b, 0.55)
-_tighten_gap(ax_b, ax_c, 0.75)
+if SHOW_PLOT_B:
+    fig.align_ylabels([ax_a, ax_b, ax_c])
+    _tighten_gap(ax_a, ax_b, 0.55)
+    _tighten_gap(ax_b, ax_c, 0.75)
+else:
+    fig.align_ylabels([ax_a, ax_c])
+    _tighten_gap(ax_a, ax_c, 0.55)
 
 os.makedirs('outputs', exist_ok=True)
 fig.savefig('outputs/mste_explanation.pdf', bbox_inches='tight')

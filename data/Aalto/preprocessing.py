@@ -147,19 +147,18 @@ def compute_feature_min_max(dataset, precomputed: bool = False,
     dataset: dictionary {user_id: {session_id: np.ndarray}}
     Returns: dict with (min, max) per feature after percentile clipping.
     """
-    all_features = []
+    hold_values = []
+    flight_values = []
 
     for user_sessions in dataset.values():
         for session in user_sessions.values():
             feats = session if precomputed else extract_features_classic(session)
-            all_features.append(feats)
-
-    all_features = np.vstack(all_features)  # shape: (total_keystrokes, num_features)
-    feature_names = ['hold', 'flight']
+            hold_values.append(feats[:, 0])
+            flight_values.append(feats[:, 1])
 
     clip_dict = {}
-    for i, name in enumerate(feature_names):
-        col = all_features[:, i]
+    for name, values in (('hold', hold_values), ('flight', flight_values)):
+        col = np.concatenate(values)
         pos_vals = col[col > 0]
         lo = float(np.percentile(pos_vals, clip_percentile_lo))
         hi = float(np.percentile(col,      clip_percentile_hi))
