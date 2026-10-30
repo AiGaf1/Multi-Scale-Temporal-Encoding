@@ -12,7 +12,7 @@ logger = setup_logger("sweep")
 _ABBREV = {
     "use_pos_enc": "pos", "num_layers": "L",
     "loss_type": "loss", "loss_temperature": "τ", "scenario": "sc", "num_heads": "H",
-    "n_periods": "N",
+    "n_periods": "N", "learnable_mste": "lrn",
 }
 
 
@@ -30,7 +30,14 @@ def _cfg_from_wandb(wc: dict) -> conf.ExperimentConfig:
     model_cls  = _MODEL_CFG_CLS[model_type]
     valid_fields = {f.name for f in dataclasses.fields(model_cls)}
     model_cfg = model_cls(**{k: v for k, v in model_overrides.items() if k in valid_fields})
-    return replace(conf.SWEEP_BASE, model=model_cfg, file_path="", predict_file_path="", **top_overrides)
+    scenario = top_overrides.get("scenario", conf.SWEEP_BASE.scenario)
+    data_dir = f"data/Aalto/raw/{scenario}"
+    file_path = f"{data_dir}/{scenario}_dev_set.npy"
+    predict_file_path = f"{data_dir}/{scenario}_test_sessions.npy"
+    # keep min_session_length in sync with window_size so short sessions aren't zero-padded
+    if "window_size" in top_overrides and "min_session_length" not in top_overrides:
+        top_overrides["min_session_length"] = top_overrides["window_size"]
+    return replace(conf.SWEEP_BASE, model=model_cfg, file_path=file_path, predict_file_path=predict_file_path, **top_overrides)
 
 
 def _run_name(wc: dict) -> str:

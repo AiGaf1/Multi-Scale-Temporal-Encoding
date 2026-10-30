@@ -9,7 +9,7 @@ class KeystrokeTransformer(nn.Module):
     def __init__(self, periods_dict, output_size=512, hidden_size=256,
                  window_size=50, vocab_size=256, key_emb_dim=16,
                  num_layers=4, num_heads=2, ff_dim=512, dropout=0.2, n_periods=16,
-                 use_pos_enc=True, use_mste=True):
+                 use_pos_enc=True, use_mste=True, learnable_mste=True):
         super().__init__()
         self.use_pos_enc = use_pos_enc
         self.use_mste = use_mste
@@ -17,7 +17,7 @@ class KeystrokeTransformer(nn.Module):
 
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
         if use_mste:
-            self.time_encoders = LearnableFourierFeatures(periods_dict, num_features=n_periods)
+            self.time_encoders = LearnableFourierFeatures(periods_dict, num_features=n_periods, learnable=learnable_mste)
             input_size = self.time_encoders.d_out + key_emb_dim
         else:
             input_size = 2 + key_emb_dim  # raw hold + flight

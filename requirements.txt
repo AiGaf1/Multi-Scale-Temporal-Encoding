@@ -1,0 +1,12 @@
+torch==2.7.0
+pytorch-lightning==2.5.1.post0
+pytorch-metric-learning
+numpy
+scipy
+scikit-learn
+wandb
+python-dotenv
+tqdm
+matplotlib
+seaborn
+plotly

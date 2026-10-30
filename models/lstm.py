@@ -1,19 +1,25 @@
 import torch
 import torch.nn as nn
-from models.fourier_encoding import LearnableFourierFeatures
+from models.fourier_encoding import LearnableFourierFeatures, Time2VecFeatures
 from utils.metrics import norm_embeddings
 
 
 class KeystrokeLSTM(nn.Module):
     def __init__(self, periods_dict, output_size=256, hidden_size=128,
                  vocab_size=256, key_emb_dim=16,
-                 n_periods=16, use_mste=True, num_layers=2, dropout=0.1):
+                 n_periods=32, use_mste=True, num_layers=2, dropout=0.1,
+                 use_time2vec=False, learnable_mste=True):
         super().__init__()
-        self.use_mste = use_mste
+        self.use_encoder = use_mste or use_time2vec
 
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
-        if use_mste:
-            self.time_encoders = LearnableFourierFeatures(periods_dict, num_features=n_periods)
+        if use_time2vec:
+            self.time_encoders = Time2VecFeatures(periods_dict, num_features=n_periods)
+            input_size = self.time_encoders.d_out + key_emb_dim
+        elif use_mste:
+            self.time_encoders = LearnableFourierFeatures(
+                periods_dict, num_features=n_periods, learnable=learnable_mste,
+            )
             input_size = self.time_encoders.d_out + key_emb_dim
         else:
             input_size = 2 + key_emb_dim  # raw hold + flight
@@ -41,7 +47,7 @@ class KeystrokeLSTM(nn.Module):
         x, mask = x.float(), mask.float()
         keys = x[..., 2].long()
         time_vec = x[..., :2]
-        time_feat = self.time_encoders(time_vec) if self.use_mste else time_vec
+        time_feat = self.time_encoders(time_vec) if self.use_encoder else time_vec
         key_feat = self.key_embedding(keys)
 
         encoded_x = torch.cat([time_feat, key_feat], dim=-1)  # (B, L, C)

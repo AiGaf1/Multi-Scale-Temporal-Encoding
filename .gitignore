@@ -1,7 +1,14 @@
 wandb/
+.env
+.codex
+*.code-profile
+*.pdf
+*.csv
+*.png
 .claude/
 *.zip
 *.txt
+!requirements.txt
 *.ipynb
 .idea/
 .vscode/

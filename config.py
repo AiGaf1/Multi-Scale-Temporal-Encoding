@@ -42,6 +42,10 @@ class ExperimentConfig:
     hidden_size: int = 128
     output_size: int = 256
     use_mste: bool = True
+    learnable_mste: bool = True
+    sin_only_mste: bool = False
+    mste_init_at_max: bool = False
+    use_time2vec: bool = False
 
     # Loss
     loss_type: str = "supcon"  # "supcon" | "arcface" | "triplet"
@@ -70,20 +74,6 @@ class ExperimentConfig:
 
     seed: int = 42
 
-    _CMU_PATH = 'data/CMU/raw/cmu_dev_set.npy'
-
-    def __post_init__(self):
-        if not self.file_path:
-            if self.scenario == 'cmu':
-                self.file_path = self._CMU_PATH
-                self.precomputed_features = True
-            else:
-                self.file_path = f'data/Aalto/raw/{self.scenario}/{self.scenario}_dev_set.npy'
-        if not self.predict_file_path:
-            if self.scenario != 'cmu':
-                self.predict_file_path = f'data/Aalto/raw/{self.scenario}/{self.scenario}_test_sessions.npy'
-
-
 # Base config — only override what differs from ExperimentConfig defaults.
 SWEEP_BASE = ExperimentConfig(
     model=TransformerConfig(),
@@ -94,11 +84,11 @@ WANDB_SWEEP_CONFIG = {
     "method": "grid",
     "metric": {"name": "val/eer", "goal": "minimize"},
     "parameters": {
-        "loss_type":        {"values": ["supcon"]}, #, "arcface", "triplet"
-        "model_type":       {"values": ["lstm"]}, #, 
+        "loss_type":        {"values": ["supcon"]},
+        "model_type":       {"values": ["lstm"]},
         "loss_temperature": {"values": [0.07]},
         "use_mste":         {"values": [True]},
-        "model.n_periods":  {"values": [128]},
-        "scenario":         {"values": ["mobile", "desktop"]}, #"desktop"
+        "model.n_periods":  {"values": [32]},
+        "scenario":         {"values": ["mobile", "desktop"]},
     },
 }

@@ -21,6 +21,7 @@ def build_model(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
             n_periods=cfg.n_periods,
             use_pos_enc=cfg.use_pos_enc,
             use_mste=config.use_mste,
+            learnable_mste=config.learnable_mste,
         )
     elif config.model_type == "cnn":
         cfg: conf.CNNConfig = config.model
@@ -30,6 +31,7 @@ def build_model(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
             output_size=config.output_size,
             n_periods=cfg.n_periods,
             use_mste=config.use_mste,
+            learnable_mste=config.learnable_mste,
         )
     elif config.model_type == "lstm":
         cfg: conf.LSTMConfig = config.model
@@ -41,6 +43,8 @@ def build_model(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
             use_mste=config.use_mste,
             num_layers=cfg.num_layers,
             dropout=cfg.dropout,
+            use_time2vec=config.use_time2vec,
+            learnable_mste=config.learnable_mste,
         )
     else:
         raise ValueError(

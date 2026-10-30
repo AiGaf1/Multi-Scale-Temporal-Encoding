@@ -46,6 +46,7 @@ class KeystrokeCNN(nn.Module):
         key_emb_dim: int = 16,
         n_periods: int = 16,
         use_mste: bool = True,
+        learnable_mste: bool = True,
     ):
         super().__init__()
         self.use_mste = use_mste
@@ -54,7 +55,7 @@ class KeystrokeCNN(nn.Module):
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
 
         if use_mste:
-            self.time_encoder = LearnableFourierFeatures(periods_dict, num_features=n_periods)
+            self.time_encoder = LearnableFourierFeatures(periods_dict, num_features=n_periods, learnable=learnable_mste)
             time_feat_dim = self.time_encoder.d_out
         else:
             self.time_encoder = None

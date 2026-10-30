@@ -140,10 +140,6 @@ def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> N
     # 1. Data & Model Setup
     dm = create_data_module(config.file_path, config.predict_file_path, config)
 
-    if config.loss_type == "arcface":
-        config.arcface_num_classes = dm.num_train_users
-        logger.info(f"ArcFace num_classes set to train users: {config.arcface_num_classes}")
-
     loss_fn = build_loss(config)
     nn_model = build_model(config, dm.min_max)
     logger.info(f"Model: {nn_model.__class__.__name__} | model_type={config.model_type} | use_mste={config.use_mste}")
