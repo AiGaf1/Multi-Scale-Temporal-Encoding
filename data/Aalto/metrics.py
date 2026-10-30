@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 from sklearn.metrics import roc_curve
-from models.cnn import norm_embeddings
+from utils.metrics import norm_embeddings
 
 def compute_eer(pred1, pred2, labels):
-    if torch.isnan(pred1).any() or torch.isinf(pred2).any():
-        print("Warning: NaN or Inf detected in z1 — replacing with 0")
+    if not (torch.isfinite(pred1).all() and torch.isfinite(pred2).all()):
+        print("Warning: NaN or Inf detected in embeddings")
     dists = torch.nn.functional.pairwise_distance(
         norm_embeddings(pred1), norm_embeddings(pred2)
     ).numpy()

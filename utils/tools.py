@@ -2,12 +2,9 @@ import os
 import logging
 from dataclasses import asdict
 
-from pytorch_metric_learning.losses import SupConLoss, TripletMarginLoss
 from pytorch_lightning.loggers import WandbLogger
-import wandb
 from datetime import datetime
 
-from models.lit_model import KeystrokeLitModel
 from config import ExperimentConfig
 
 
@@ -41,7 +38,6 @@ def setup_wandb_logging(
     """
     tags = [
         f"scenario_{config.scenario}",
-        # f"embedding_{config.embedding_size}",
         f"window_size_{config.window_size}",
         f"epochs_{config.epochs}",
         f"trigperiods_{config.model.n_periods}",
@@ -104,93 +100,3 @@ def save_predictions(similarities: list[float], scenario: str, run_dir: str, log
     with open(output_file, "w") as f:
         f.write(str(similarities))
     logger.info(f"Predictions saved to {output_file}")
-
-def export_to_onnx(config: ExperimentConfig,ckpt_path: str, wandb_logger: WandbLogger, model):
-    import torch.serialization
-    from pytorch_metric_learning.distances.cosine_similarity import CosineSimilarity
-    from pytorch_metric_learning.reducers.mean_reducer import MeanReducer
-
-    # Allow the custom classes needed for weights_only=True loading
-    torch.serialization.add_safe_globals([
-        CosineSimilarity, SupConLoss, TripletMarginLoss,
-        MeanReducer, getattr,
-    ])
-
-    # After creating your model
-    batch_size = config.batches_per_epoch_train
-    seq_len = config.window_size
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    dummy_x = torch.cat([
-        torch.randn(batch_size, seq_len, 1),
-        torch.randn(batch_size, seq_len, 1),
-        torch.randint(0, 256, (batch_size, seq_len, 1))
-    ], dim=-1).to(device)
-
-    dummy_mask = torch.ones(batch_size, seq_len, dtype=torch.bool)
-    dummy_x = dummy_x.to(device)
-    dummy_mask = dummy_mask.to(device)
-
-    model = model.to(device)
-
-    # Parse score from checkpoint filename (e.g., "mobile-769-1.49.ckpt" -> 1.49)
-    filename = os.path.basename(ckpt_path)
-    score_str = filename.split('-')[-1].replace('.ckpt', '')
-    float_score = float(score_str)
-    rounded_score = round(float_score, 2)
-
-    best_lit = KeystrokeLitModel.load_from_checkpoint(
-        ckpt_path,
-        model=model,
-        loss_fn=None,
-        strict=False
-    )
-    # Unwrap torch.compile if applied, then move to device and set eval
-    export_model = getattr(best_lit.model, '_orig_mod', best_lit.model)
-    export_model = export_model.to(device)
-    export_model.eval()
-
-    # Construct ONNX save path in the parent directory under 'onnx' subfolder
-    ckpt_dir = os.path.dirname(ckpt_path)  # e.g., "Keystroke-XAI/20251227_0330/checkpoints"
-    parent_dir = os.path.dirname(ckpt_dir)  # e.g., "Keystroke-XAI/20251227_0330"
-    onnx_dir = os.path.join(parent_dir, 'onnx')
-    os.makedirs(onnx_dir, exist_ok=True)  # Create 'onnx' folder if it doesn't exist
-    onnx_path = os.path.join(onnx_dir, f"model_{rounded_score}.onnx")
-
-    # nn.LSTM uses data-pointer access that breaks the dynamo exporter (FakeTensor),
-    # so force the legacy TorchScript exporter for LSTM models only.
-    from models.lstm import KeystrokeLSTM
-    use_torchscript_exporter = isinstance(export_model, KeystrokeLSTM)
-
-    with torch.no_grad():
-        torch.onnx.export(
-            export_model,
-            (dummy_x, dummy_mask),
-            onnx_path,
-            export_params=True,
-            opset_version=18,
-            do_constant_folding=True,
-            input_names=['input', 'mask'],
-            output_names=['embedding'],
-            dynamic_axes={
-                'input': {0: 'batch_size'},
-                'mask': {0: 'batch_size'},
-                'embedding': {0: 'batch_size'}
-            },
-            dynamo=not use_torchscript_exporter,
-        )
-
-    # Extract run_id from a path (assuming structure like "Keystroke-XAI/20251227_0330/checkpoints/...")
-    path_parts = ckpt_path.split(os.sep)
-    run_id = path_parts[-3]
-
-    artifact = wandb.Artifact(
-        name=f"model-onnx-{run_id}-{rounded_score}",
-        type="model",
-        description="ONNX exported model"
-    )
-
-    artifact.add_file(local_path=onnx_path)
-
-    wandb_logger.experiment.log_artifact(artifact)
-    artifact.wait()

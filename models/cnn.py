@@ -107,6 +107,3 @@ class KeystrokeCNN(nn.Module):
         embedding = (features * valid).sum(dim=1) / (valid.sum(dim=1) + 1e-8)
         embedding = self.projector(embedding)
         return norm_embeddings(embedding)
-
-    def get_embedding_dim(self) -> int:
-        return self.embedding_dim

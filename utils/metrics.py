@@ -1,28 +1,18 @@
 import torch
 import torch.nn.functional as F
-from torch import nn
 
 
 def norm_embeddings(embeddings: torch.Tensor) -> torch.Tensor:
     return F.normalize(embeddings, dim=-1, p=2)
 
 
-def compute_distances4comps(embeddings, comps, metric="euclidean"):
+def compute_distances4comps(embeddings, comps):
+    """Euclidean distance between L2-normalised embeddings for each comparison pair."""
     distances = {}
     for comp in comps:
         e1, e2 = norm_embeddings(embeddings[comp[0]]), norm_embeddings(embeddings[comp[1]])
-        distance = compute_distance(e1, e2, metric)
-        distances[str(comp)] = distance
+        distances[str(comp)] = F.pairwise_distance(e1, e2).item()
     return distances
-
-def compute_distance(e1, e2, metric):
-    if metric == "euclidean":
-        distance = nn.functional.pairwise_distance(e1, e2).item()
-    elif metric == "cosine":
-        distance = nn.functional.cosine_similarity(e1, e2).item()
-    else:
-        raise ValueError(f"Unknown metric {metric}")
-    return distance
 
 def normalize_distances(distances):
     """

@@ -8,13 +8,13 @@ class TransformerConfig:
     num_heads: int = 2
     ff_dim: int = 256
     dropout: float = 0.1
-    n_periods: int = 16
+    n_periods: int = 32
     use_pos_enc: bool = True
 
 
 @dataclass
 class CNNConfig:
-    n_periods: int = 16
+    n_periods: int = 32
     hidden_size: int = 128
 
 
@@ -22,7 +22,7 @@ class CNNConfig:
 class LSTMConfig:
     num_layers: int = 2
     dropout: float = 0.1
-    n_periods: int = 16
+    n_periods: int = 32
     hidden_size: int = 128
 
 
@@ -37,8 +37,8 @@ class ExperimentConfig:
     train_split: float = 0.80
 
     # Model
-    model_type: str = "transformer"  # "transformer" | "cnn" | "lstm"
-    model: Union[TransformerConfig, CNNConfig, LSTMConfig] = field(default_factory=TransformerConfig)
+    model_type: str = "lstm"  # "transformer" | "cnn" | "lstm"
+    model: Union[TransformerConfig, CNNConfig, LSTMConfig] = field(default_factory=LSTMConfig)
     hidden_size: int = 128
     output_size: int = 256
     use_mste: bool = True
@@ -46,7 +46,7 @@ class ExperimentConfig:
 
     # Loss
     loss_type: str = "supcon"  # "supcon" | "triplet"
-    loss_temperature: float = 0.1
+    loss_temperature: float = 0.07
 
     # Training
     epochs: int = 1000
@@ -69,9 +69,7 @@ class ExperimentConfig:
     seed: int = 42
 
 # Base config — only override what differs from ExperimentConfig defaults.
-SWEEP_BASE = ExperimentConfig(
-    model=TransformerConfig(),
-)
+SWEEP_BASE = ExperimentConfig()
 
 # W&B native sweep config — passed to run_sweep_agent() in train.py.
 WANDB_SWEEP_CONFIG = {

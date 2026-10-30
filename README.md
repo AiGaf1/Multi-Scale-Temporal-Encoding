@@ -72,6 +72,15 @@ After training, the best checkpoint scores the official test comparisons and wri
 `<scenario>_predictions.txt` to the run directory, ready for submission to the
 KVC-onGoing evaluation server.
 
+### Fig. 3
+
+```bash
+python plot_mste_explanation.py <path/to/checkpoint.ckpt> --scenario desktop
+```
+
+plots the learned MSTE components for one development-set session and writes
+`outputs/mste_flight_explanation.{pdf,png}`.
+
 ### Ablations
 
 Change the sweep grid in `config.py` to reproduce the ablations:

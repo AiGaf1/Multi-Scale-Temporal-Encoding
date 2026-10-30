@@ -57,6 +57,3 @@ class KeystrokeLSTM(nn.Module):
         embedding = (out * valid).sum(dim=1) / (valid.sum(dim=1) + 1e-8)
         projector = self.projector(embedding)
         return norm_embeddings(projector)
-
-    def get_embedding_dim(self) -> int:
-        return self.embedding_dim

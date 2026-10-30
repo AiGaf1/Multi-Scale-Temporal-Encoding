@@ -69,6 +69,3 @@ class KeystrokeTransformer(nn.Module):
 
         embedding = self.projector(embedding)
         return norm_embeddings(embedding)
-
-    def get_embedding_dim(self) -> int:
-        return self.embedding_dim

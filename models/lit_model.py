@@ -16,13 +16,8 @@ class KeystrokeLitModel(pl.LightningModule):
         lr: float = 1e-3,
     ):
         super().__init__()
-        self.model = torch.compile(model, mode='max-autotune-no-cudagraphs')
         self.model = model
         self.loss_fn = loss_fn
-        # self.miner = miner
-
-        for name, module in self.named_modules():
-            module.name = name
         self.save_hyperparameters(ignore=['model', 'loss_fn'])
         self._eer_outputs: Dict[str, list] = {"train": [], "val": []}
 
@@ -79,20 +74,10 @@ class KeystrokeLitModel(pl.LightningModule):
     def on_validation_epoch_end(self):
         self._compute_epoch_eer("val")
 
-    # def test_step(self, batch, batch_idx):
-    #     out = self._step_common(batch)
-    #     test_loss = contrastive_loss(out["z1"], out["z2"], out["labels"].float())
-    #     self.log("test/loss", test_loss, prog_bar=True, on_epoch=True)
-    #     self.log("test/eer", out["eer"], prog_bar=True, on_epoch=True)
-    #     return {"test_loss": test_loss.detach()}
-
     def predict_step(self, batch, batch_idx):
         fix_sessions, masks, session_ids = batch
 
-        # Get embeddings from model (pass mask if your model uses it)
-        embeddings = self.forward(fix_sessions, mask=masks)  # adjust based on your model's forward signature
-        # OR if model doesn't use mask:
-        # embeddings = self.forward(fix_sessions)
+        embeddings = self.forward(fix_sessions, mask=masks)
 
         # Return list of (session_id, embedding) tuples
         return [(sid, emb.cpu()) for sid, emb in zip(session_ids, embeddings)]

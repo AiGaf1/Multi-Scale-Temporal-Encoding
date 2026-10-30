@@ -19,7 +19,6 @@ import wandb
 from dotenv import load_dotenv
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelSummary
-from torch import nn
 import torch
 # 3. Local Modules (Project Specific)
 import config as conf
@@ -29,7 +28,6 @@ from models.factory import build_model
 from utils.callbacks import create_callbacks
 from utils.losses import build_loss
 from utils.tools import (
-    export_to_onnx,
     load_comparisons,
     save_predictions,
     setup_logger,
@@ -153,25 +151,18 @@ def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> N
     # 4. Execution
     trainer.fit(lit_model, datamodule=dm)
 
-    # 5. Post-Training: Exporting the BEST model
-    checkpoint_cb = callbacks[0]
-    best_model_path = checkpoint_cb.best_model_path
-    logger.info(f"Loading best model for export: {best_model_path}")
-    export_to_onnx(config, best_model_path, wandb_logger, nn_model)
-
-    # # Run predictions
-    # ckpt_path = "Keystroke-XAI/20251227_0330/checkpoints/mobile-769-1.49.ckpt"
+    # 5. Score the official test comparisons with the best checkpoint
+    best_model_path = callbacks[0].best_model_path
+    logger.info(f"Best checkpoint: {best_model_path}")
     embeddings = run_predictions(trainer, lit_model, dm, best_model_path)
     comparisons = load_comparisons(config.scenario, logger)
-    distances = compute_distances4comps(embeddings, comparisons, metric="euclidean")
+    distances = compute_distances4comps(embeddings, comparisons)
     similarities = normalize_distances(distances)
     save_predictions(similarities, config.scenario, run_dir, logger)
-    # visualize_activations(nn_model, dm)
 
     wandb.finish()
 
 
 if __name__ == "__main__":
     wandb_login()
-    initialize_environment(conf.SWEEP_BASE)
     run_sweep_agent(run_experiment)
