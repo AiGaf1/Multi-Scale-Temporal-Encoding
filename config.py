@@ -61,26 +61,23 @@ class ExperimentConfig:
     clip_percentile_lo: float = 0.01   # lower percentile for timing feature clipping
     clip_percentile_hi: float = 99.99   # upper percentile for timing feature clipping
 
-    # Data path
+    # Data path (derived from the scenario unless given)
     scenario: str = 'desktop'  # 'desktop' | 'mobile'
     file_path: str = ''
     predict_file_path: str = ''
 
     seed: int = 42
 
-# Base config — only override what differs from ExperimentConfig defaults.
-SWEEP_BASE = ExperimentConfig()
+    def __post_init__(self):
+        data_dir = f'data/Aalto/raw/{self.scenario}'
+        if not self.file_path:
+            self.file_path = f'{data_dir}/{self.scenario}_dev_set.npy'
+        if not self.predict_file_path:
+            self.predict_file_path = f'{data_dir}/{self.scenario}_test_sessions.npy'
 
-# W&B native sweep config — passed to run_sweep_agent() in train.py.
-WANDB_SWEEP_CONFIG = {
-    "method": "grid",
-    "metric": {"name": "val/eer", "goal": "minimize"},
-    "parameters": {
-        "loss_type":        {"values": ["supcon"]},
-        "model_type":       {"values": ["lstm"]},
-        "loss_temperature": {"values": [0.07]},
-        "use_mste":         {"values": [True]},
-        "model.n_periods":  {"values": [32]},
-        "scenario":         {"values": ["mobile", "desktop"]},
-    },
+
+MODEL_CONFIGS = {
+    "transformer": TransformerConfig,
+    "cnn": CNNConfig,
+    "lstm": LSTMConfig,
 }

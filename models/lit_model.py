@@ -1,7 +1,6 @@
 import torch
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
 
 from data.Aalto.metrics import compute_eer
 from typing import Any, Dict, Tuple, Optional
@@ -81,12 +80,6 @@ class KeystrokeLitModel(pl.LightningModule):
 
         # Return list of (session_id, embedding) tuples
         return [(sid, emb.cpu()) for sid, emb in zip(session_ids, embeddings)]
-
-    def on_train_start(self):
-        if isinstance(self.logger, WandbLogger):
-            self.logger.experiment.watch(self.model, log="all",
-                                         log_freq=256, log_graph=True)
-            self.logger.experiment.define_metric("*", step_metric="epoch")
 
     def configure_optimizers(self):
         param_groups = [

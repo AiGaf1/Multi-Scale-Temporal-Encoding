@@ -4,7 +4,7 @@ Usage:
     python plot_eer_vs_n.py [--out outputs/eer_vs_n.pdf]
 
 The EER values are the final train/validation EERs of the N-ablation runs (LSTM, SupConLoss);
-re-running that ablation means sweeping model.n_periods over 2..128 in config.py.
+re-running that ablation means `python train.py --n-periods N` for N in 2, 4, ..., 128.
 
 The figure is drawn at its printed size and its text is typeset by LaTeX with the paper's
 fonts, so a LaTeX installation with the newtx package is required.

@@ -1,11 +1,10 @@
 # 1. Standard Library
-import os
+import argparse
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module="torch._dynamo")
 warnings.filterwarnings("ignore", message=".*dynamic_axes.*dynamo.*")
 warnings.filterwarnings("ignore", message=".*dtype.*align.*", module="numpy")
-warnings.filterwarnings("ignore", message=".*wandb run already in progress.*")
 warnings.filterwarnings("ignore", message=".*bf16-mixed is not supported by the model summary.*")
 
 import logging
@@ -15,9 +14,7 @@ logging.getLogger("torch._inductor").setLevel(logging.ERROR)
 # 2. Third-Party Libraries
 import numpy as np
 import pytorch_lightning as pl
-import wandb
-from dotenv import load_dotenv
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import Logger
 from pytorch_lightning.callbacks import ModelSummary
 import torch
 # 3. Local Modules (Project Specific)
@@ -31,23 +28,11 @@ from utils.tools import (
     load_comparisons,
     save_predictions,
     setup_logger,
-    setup_wandb_logging
+    setup_run_logging
 )
 from utils.metrics import compute_distances4comps, normalize_distances
-from utils.sweep import run_sweep_agent
 
 logger = setup_logger("train")
-
-def wandb_login() -> None:
-    load_dotenv()
-    os.makedirs("outputs", exist_ok=True)
-    os.environ["WANDB_DIR"] = os.path.abspath("outputs")
-    api_key = os.getenv("WANDB_API_KEY")
-    if api_key:
-        wandb.login(key=api_key)
-    else:
-        logger.warning("WANDB_API_KEY not found in environment variables.")
-
 
 def initialize_environment(config: conf.ExperimentConfig) -> None:
     pl.seed_everything(config.seed, workers=True, verbose=False)
@@ -86,7 +71,7 @@ def create_data_module(
 
 def create_trainer(
         epochs: int,
-        wandb_logger: WandbLogger = None,
+        run_logger: Logger = None,
         callbacks: list[pl.Callback] = None,
 ) -> pl.Trainer:
     """Create PyTorch Lightning trainer with optimal settings."""
@@ -95,7 +80,7 @@ def create_trainer(
 
     return pl.Trainer(
         max_epochs=epochs,
-        logger=wandb_logger,
+        logger=run_logger,
         callbacks=callbacks,
         precision="bf16-mixed",
         gradient_clip_val=1.0,
@@ -131,7 +116,7 @@ def run_predictions(
     logger.info(f"Collected {len(embeddings)} session embeddings")
     return embeddings
 
-def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> None:
+def run_experiment(config: conf.ExperimentConfig) -> None:
     initialize_environment(config)
 
     # 1. Data & Model Setup
@@ -143,10 +128,10 @@ def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> N
     lit_model = KeystrokeLitModel(nn_model, loss_fn, t_0=config.t_0, lr=config.lr)
 
     # 3. Training Infrastructure
-    wandb_logger, run_dir = setup_wandb_logging(config=config, model_name=nn_model.__class__.__name__, run_id=sweep_run_id)
+    run_logger, run_dir = setup_run_logging(config, model_name=nn_model.__class__.__name__)
     callbacks = create_callbacks(config.scenario, run_dir)
     callbacks.append(ModelSummary(max_depth=4))
-    trainer = create_trainer(config.epochs, wandb_logger, callbacks)
+    trainer = create_trainer(config.epochs, run_logger, callbacks)
 
     # 4. Execution
     trainer.fit(lit_model, datamodule=dm)
@@ -160,9 +145,31 @@ def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> N
     similarities = normalize_distances(distances)
     save_predictions(similarities, config.scenario, run_dir, logger)
 
-    wandb.finish()
+
+def parse_args() -> argparse.Namespace:
+    """Defaults reproduce the paper's best configuration (LSTM, MSTE with N = 32, SupConLoss)."""
+    p = argparse.ArgumentParser(description="Train and evaluate MSTE keystroke verification models.")
+    p.add_argument("--scenario", nargs="+", default=["desktop", "mobile"], choices=["desktop", "mobile"])
+    p.add_argument("--model", default="lstm", choices=list(conf.MODEL_CONFIGS))
+    p.add_argument("--loss", default="supcon", choices=["supcon", "triplet"])
+    p.add_argument("--n-periods", type=int, default=32, help="number of MSTE frequencies N")
+    p.add_argument("--no-mste", action="store_true", help="outlier clipping instead of MSTE")
+    p.add_argument("--fixed-frequencies", action="store_true", help="MSTE with fixed (non-learnable) frequencies")
+    p.add_argument("--window-size", type=int, default=50, help="maximum keystrokes per session")
+    p.add_argument("--epochs", type=int, default=1000)
+    return p.parse_args()
 
 
 if __name__ == "__main__":
-    wandb_login()
-    run_sweep_agent(run_experiment)
+    args = parse_args()
+    for scenario in args.scenario:
+        run_experiment(conf.ExperimentConfig(
+            scenario=scenario,
+            model_type=args.model,
+            model=conf.MODEL_CONFIGS[args.model](n_periods=args.n_periods),
+            loss_type=args.loss,
+            use_mste=not args.no_mste,
+            learnable_mste=not args.fixed_frequencies,
+            window_size=args.window_size,
+            epochs=args.epochs,
+        ))

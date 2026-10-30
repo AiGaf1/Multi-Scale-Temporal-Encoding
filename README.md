@@ -15,7 +15,7 @@ On the official KVC-onGoing test set, LSTM + MSTE + SupCon loss reaches a global
 ## Repository layout
 
 ```
-config.py                 experiment configuration and W&B sweep grid
+config.py                 experiment configuration (paper defaults)
 train.py                  training, validation and test-set prediction
 models/fourier_encoding.py  MSTE (LearnableFourierFeatures)
 models/{lstm,transformer,cnn}.py  sequence encoders
@@ -55,24 +55,16 @@ The data is not redistributed in this repository.
 
 ## Training
 
-Training runs as a [Weights & Biases](https://wandb.ai) grid sweep defined by
-`WANDB_SWEEP_CONFIG` in `config.py`. Put your API key in a `.env` file:
-
-```
-WANDB_API_KEY=<your key>
-```
-
-then run
-
 ```bash
 python train.py
 ```
 
-The default sweep trains the paper's best configuration (LSTM, MSTE with `N = 32`,
-SupCon loss with temperature 0.07, 50-keystroke windows) on both desktop and mobile.
-After training, the best checkpoint scores the official test comparisons and writes
-`<scenario>_predictions.txt` to the run directory, ready for submission to the
-KVC-onGoing evaluation server.
+trains the paper's best configuration (LSTM, MSTE with `N = 32`, SupCon loss with
+temperature 0.07, up to 50 keystrokes per session) on desktop and then mobile. Each run
+writes to `outputs/Keystroke-XAI/<timestamp>/`: training/validation metrics in
+`metrics.csv`, the best checkpoint in `checkpoints/`, and `<scenario>_predictions.txt`,
+the scores for the official test comparisons, ready for submission to the KVC-onGoing
+evaluation server.
 
 ### Figures
 
@@ -90,16 +82,20 @@ train/validation EERs of the N-ablation runs, listed in the script.
 
 ### Ablations
 
-Change the sweep grid in `config.py` to reproduce the ablations:
+Command-line options reproduce the ablations (the defaults are the paper's configuration):
 
-| Ablation | Setting |
+| Ablation | Option |
 |---|---|
-| Encoder | `model_type`: `"lstm"`, `"transformer"`, `"cnn"` |
-| MSTE vs. outlier clipping | `use_mste`: `True` / `False` |
-| Learnable vs. fixed frequencies | `learnable_mste`: `True` / `False` |
-| Number of frequencies | `model.n_periods`: e.g. `2 … 128` |
-| Loss | `loss_type`: `"supcon"` / `"triplet"` |
-| Window length | `window_size`: e.g. `30`, `40`, `50` |
+| Encoder | `--model lstm`, `--model transformer`, `--model cnn` |
+| MSTE vs. outlier clipping | `--no-mste` |
+| Learnable vs. fixed frequencies | `--fixed-frequencies` |
+| Number of frequencies | `--n-periods N`, e.g. `2 … 128` |
+| Loss | `--loss supcon`, `--loss triplet` |
+| Window length | `--window-size 30`, `40`, `50` |
+| Device | `--scenario desktop`, `--scenario mobile` |
+
+For example, `python train.py --model cnn --no-mste --scenario desktop` trains the CNN
+with outlier clipping on desktop data.
 
 ## Citation
 
