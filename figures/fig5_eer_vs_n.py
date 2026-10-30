@@ -58,7 +58,6 @@ plt.rcParams.update({
 fig, ax = plt.subplots(figsize=(3.6, 1.75), layout='constrained')
 
 ax.axvspan(CHOSEN_N / 1.25, CHOSEN_N * 1.25, color='#f0f0f0', zorder=0, lw=0)
-ax.text(CHOSEN_N, 2.255, f'$N={CHOSEN_N}$', ha='center', va='bottom', fontsize=7.5, color='#555555')
 
 for device in ('Desktop', 'Mobile'):
     c = COLORS[device]
