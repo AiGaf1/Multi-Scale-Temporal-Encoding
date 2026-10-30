@@ -2,17 +2,19 @@
 
 Usage:
     python plot_mste_explanation.py <checkpoint.ckpt> [--scenario desktop] [--user 0] [--session 0]
+                                    [--out outputs/mste_flight_explanation.pdf]
+
+The figure is drawn at its printed size (LNCS text width) and its text is typeset by
+LaTeX with the paper's fonts, so a LaTeX installation with the newtx package is required.
 """
 import argparse
 import os
 
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import matplotlib.ticker as ticker
 import numpy as np
 import torch
 from matplotlib.lines import Line2D
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from data.Aalto.preprocessing import extract_features_classic
 
@@ -21,6 +23,7 @@ parser.add_argument('checkpoint', help='Lightning checkpoint of an MSTE model')
 parser.add_argument('--scenario', default='desktop', choices=['desktop', 'mobile'])
 parser.add_argument('--user', type=int, default=0, help='index of the user in the dev set')
 parser.add_argument('--session', type=int, default=0, help='index of the session for that user')
+parser.add_argument('--out', default='outputs/mste_flight_explanation.pdf', help='output PDF (a PNG is saved next to it)')
 args = parser.parse_args()
 
 # -- Learned frequencies from the checkpoint -----------------------------------
@@ -59,7 +62,7 @@ ft_eff_per = eff_periods[1]
 ft_mste    = mste_exact(ft_raw, eff_freq[1])
 
 def fmt_period(p):
-    return f'{p * 1000:.0f} ms' if p < 1 else f'{p:.2f} s'
+    return rf'{p * 1000:.0f}\,ms' if p < 1 else rf'{p:.2f}\,s'
 
 # Show the learned periods closest to these targets
 TARGET_PERIODS = np.array([0.080, 0.300, 0.700, 3.000, 6.000, 10.000, 20.000])  # seconds
@@ -71,121 +74,85 @@ for p in TARGET_PERIODS:
             SHOW_IDX.append(idx)
             break
 N_show = len(SHOW_IDX)
-show_colors = plt.cm.viridis(np.linspace(0.08, 0.78, N_show))
-period_label_size = 7 if N_show <= 12 else 5.5 if N_show <= 24 else 4.5
+# shortest period at the bottom, darkest colour
+show_colors = plt.cm.viridis(np.linspace(0.05, 0.72, N_show))
 
-print(f'Picked periods: {[fmt_period(ft_eff_per[i]) for i in SHOW_IDX]}')
+print('Picked periods:', [f'{ft_eff_per[i]:.3f}s' for i in SHOW_IDX])
 
-# -- Typography ----------------------------------------------------------------
+# -- Typography: LaTeX with the paper's fonts, drawn at printed size ------------
 plt.rcParams.update({
+    'text.usetex': True,
+    'text.latex.preamble': r'\usepackage[T1]{fontenc}\usepackage{newtxtext}\usepackage[varvw]{newtxmath}',
     'font.family': 'serif',
-    'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif'],
-    'mathtext.fontset': 'stix',
-    'mathtext.rm': 'STIXGeneral',
-    'font.size': 9,
-    'axes.titlesize': 10,
-    'axes.titleweight': 'bold',
-    'axes.labelsize': 9,
+    'font.size': 8.5,
+    'axes.labelsize': 8.5,
+    'axes.titlesize': 8.5,
     'xtick.labelsize': 8,
     'ytick.labelsize': 8,
     'legend.fontsize': 8,
     'axes.linewidth': 0.6,
     'xtick.major.width': 0.6,
     'ytick.major.width': 0.6,
-    'xtick.major.size': 3.0,
-    'ytick.major.size': 3.0,
-    'figure.dpi': 300,
-    'pdf.fonttype': 42,
-    'ps.fonttype': 42,
+    'xtick.major.size': 2.5,
+    'ytick.major.size': 2.5,
 })
+PEAK = '#c0392b'
 
-def _add_dummy_cbar(ax):
-    # keeps both panels the same width
-    make_axes_locatable(ax).append_axes('right', size='2.2%', pad='2%').set_visible(False)
-
-def _tighten_gap(ax_top, ax_bot, frac):
-    pt = ax_top.get_position()
-    pb = ax_bot.get_position()
-    gap = pt.y0 - (pb.y0 + pb.height)
-    ax_bot.set_position([pb.x0, pb.y0 + gap * frac, pb.width, pb.height])
-
-freq_panel_height = max(2.2, 0.18 * N_show)
-fig = plt.figure(figsize=(9.2, 1.9 + freq_panel_height))
-gs  = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1.0, freq_panel_height], hspace=0.32)
+# 4.8 in = LNCS text width (122 mm)
+fig, (ax_a, ax_b) = plt.subplots(
+    2, 1, figsize=(4.8, 3.05), sharex=True, layout='constrained',
+    gridspec_kw={'height_ratios': [1, 2.6], 'hspace': 0.06},
+)
 
 # -- (a) Raw flight time -------------------------------------------------------
-y_ms   = ft_raw * 1000
-peak_v = y_ms[peak_i]
+ax_a.axhline(0, color='#999999', lw=0.5, zorder=1)
+ax_a.axvline(peak_i, color=PEAK, lw=0.8, ls='--', alpha=0.6, zorder=1)
+ax_a.plot(t, ft_raw, color='#333333', lw=0.8, marker='o', ms=2.4,
+          markerfacecolor='white', markeredgewidth=0.6, zorder=3)
+ax_a.plot(peak_i, ft_raw[peak_i], marker='o', ms=3.2, color=PEAK, zorder=4)
+ax_a.annotate(rf'{ft_raw[peak_i]:.2f}\,s', xy=(peak_i, ft_raw[peak_i]), xytext=(-6, -1),
+              textcoords='offset points', ha='right', va='center', fontsize=8, color=PEAK)
 
-ax_a = fig.add_subplot(gs[0])
-_add_dummy_cbar(ax_a)
-
-ax_a.plot(t, y_ms, color='#333333', lw=0.8,
-          marker='o', ms=1.8, markerfacecolor='white', markeredgewidth=0.55, zorder=3)
-ax_a.axvline(peak_i, color='#d62728', lw=0.65, ls='--', alpha=0.45, zorder=0)
-peak_label = f'{peak_v / 1000:.2f} s' if peak_v >= 1000 else f'{peak_v:.0f} ms'
-ax_a.annotate(peak_label,
-              xy=(peak_i, peak_v), xytext=(-55, -5), textcoords='offset points',
-              fontsize=8, color='#d62728',
-              arrowprops=dict(arrowstyle='->', color='#d62728', lw=0.65, shrinkA=2, shrinkB=2))
-
-def _fmt_time(v, _):
-    if v >= 1000:
-        return f'{v / 1000:.1f} s'
-    return f'{v:.0f} ms'
-
-y_pad = max(20.0, 0.08 * float(np.ptp(y_ms)))
-ax_a.set_xlim(-0.5, n - 0.5)
-ax_a.set_ylim(float(np.min(y_ms)) - y_pad, float(np.max(y_ms)) + y_pad)
-ax_a.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
-ax_a.yaxis.set_major_formatter(ticker.FuncFormatter(_fmt_time))
-ax_a.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax_a.set_ylabel(r'$\mathrm{FT_i}$')
-ax_a.tick_params(axis='x', labelbottom=False)
-ax_a.set_title(r'(a) Flight Time $\mathrm{FT_i}$, raw signed values', pad=3, loc='left')
-ax_a.spines[['top', 'right']].set_visible(False)
-ax_a.grid(axis='y', lw=0.2, ls='--', color='#cccccc', zorder=0)
-ax_a.legend(handles=[
-    Line2D([0], [0], color='#d62728', lw=1.0, ls='--', label=r'peak $|\mathrm{FT}_i|$'),
-], fontsize=9, frameon=False, loc='upper right',
-   bbox_to_anchor=(1.0, 1.20), ncol=3, columnspacing=0.8, handlelength=1.8)
+y_pad = 0.1 * float(np.ptp(ft_raw))
+ax_a.set_ylim(float(ft_raw.min()) - y_pad, float(ft_raw.max()) + y_pad)
+ax_a.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+ax_a.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f'${v:g}$'))
+ax_a.set_ylabel(r'$\mathrm{FT}_i$ (s)')
+ax_a.set_title(r'\textbf{(a)} Flight time $\mathrm{FT}_i$, raw signed values', loc='left', pad=3)
 
 # -- (b) MSTE sin/cos components -----------------------------------------------
-ax_b = fig.add_subplot(gs[1])
-_add_dummy_cbar(ax_b)
-
-offset_step = 2.1
+offset_step = 2.2
 for k, idx in enumerate(SHOW_IDX):
     base = k * offset_step
     c    = show_colors[k]
-    ax_b.plot(t, base + ft_mste[2*idx],     color=c, lw=0.75, ls='-',  alpha=0.95)
-    ax_b.plot(t, base + ft_mste[2*idx + 1], color=c, lw=0.75, ls='--', alpha=0.75)
-    ax_b.axhline(base, color='#dddddd', lw=0.25, zorder=0)
+    ax_b.axhline(base, color='#e4e4e4', lw=0.4, zorder=0)
+    ax_b.plot(t, base + ft_mste[2*idx],     color=c, lw=0.85, ls='-',  zorder=3)
+    ax_b.plot(t, base + ft_mste[2*idx + 1], color=c, lw=0.85, ls=(0, (2.5, 1.5)), alpha=0.8, zorder=2)
 
-ax_b.axvline(peak_i, color='#d62728', lw=0.6, ls='--', alpha=0.55, zorder=3)
-ax_b.legend(handles=[
-    Line2D([0], [0], color='#333333', lw=1.0, ls='-',  label=r'$\sin(\omega_j \mathrm{FT}_i)$'),
-    Line2D([0], [0], color='#333333', lw=1.0, ls='--', label=r'$\cos(\omega_j \mathrm{FT}_i)$'),
-], fontsize=9, frameon=False, loc='upper right', bbox_to_anchor=(1.0, 1.13),
-   ncol=2, columnspacing=0.8, handlelength=1.8, borderaxespad=0.2)
-
-ax_b.set_xlim(-0.5, n - 0.5)
-ax_b.set_ylim(-1.15, (N_show - 1) * offset_step + 1.15)
+ax_b.axvline(peak_i, color=PEAK, lw=0.8, ls='--', alpha=0.6, zorder=1)
+ax_b.set_ylim(-1.25, (N_show - 1) * offset_step + 1.25)
 ax_b.set_yticks([k * offset_step for k in range(N_show)])
-ax_b.set_yticklabels([fmt_period(ft_eff_per[i]) for i in SHOW_IDX], fontsize=period_label_size)
+ax_b.set_yticklabels([fmt_period(ft_eff_per[i]) for i in SHOW_IDX])
 for k, lbl in enumerate(ax_b.get_yticklabels()):
     lbl.set_color(show_colors[k])
+ax_b.tick_params(axis='y', length=0, pad=4)
+ax_b.set_ylabel(r'Learned period $p_j$')
+ax_b.set_xlabel(r'Keystroke index $i$')
+ax_b.set_title(r'\textbf{(b)} MSTE components $\sin(\omega_j \mathrm{FT}_i)$ and $\cos(\omega_j \mathrm{FT}_i)$',
+               loc='left', pad=3)
+ax_b.legend(handles=[
+    Line2D([0], [0], color='#444444', lw=0.9, ls='-', label='sine'),
+    Line2D([0], [0], color='#444444', lw=0.9, ls=(0, (2.5, 1.5)), label='cosine'),
+], frameon=False, ncol=2, loc='lower right', bbox_to_anchor=(1.0, 1.0),
+   handlelength=2.0, columnspacing=1.0, borderaxespad=0.2)
 
-ax_b.set_xlabel('Keystroke index $k$')
-ax_b.set_ylabel(r'Learned $p_j$', labelpad=3)
-ax_b.set_title(r'(b) MSTE sin/cos components', pad=3, loc='left')
-ax_b.spines[['top', 'right']].set_visible(False)
-ax_b.grid(axis='x', lw=0.2, ls=':', color='#cccccc', zorder=0)
-
+for ax in (ax_a, ax_b):
+    ax.spines[['top', 'right']].set_visible(False)
+ax_b.set_xlim(-0.8, n - 0.2)
+ax_b.xaxis.set_major_locator(ticker.MultipleLocator(10))
 fig.align_ylabels([ax_a, ax_b])
-_tighten_gap(ax_a, ax_b, 0.35)
 
-os.makedirs('outputs', exist_ok=True)
-fig.savefig('outputs/mste_flight_explanation.pdf', bbox_inches='tight')
-fig.savefig('outputs/mste_flight_explanation.png', bbox_inches='tight', dpi=300)
-print('Saved outputs/mste_flight_explanation.{pdf,png}')
+os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
+fig.savefig(args.out)
+fig.savefig(os.path.splitext(args.out)[0] + '.png', dpi=300)
+print(f'Saved {args.out}')
