@@ -13,8 +13,6 @@ wandb/
 .idea/
 .vscode/
 data/Aalto/raw/
-data/CMU/raw/
-data/HMOG/raw/
 Keystroke-XAI/
 test/
 outputs/

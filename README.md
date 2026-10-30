@@ -17,7 +17,7 @@ On the official KVC-onGoing test set, LSTM + MSTE + SupCon loss reaches a global
 ```
 config.py                 experiment configuration and W&B sweep grid
 train.py                  training, validation and test-set prediction
-models/fourier_encoding.py  MSTE (LearnableFourierFeatures) and the Time2Vec baseline
+models/fourier_encoding.py  MSTE (LearnableFourierFeatures)
 models/{lstm,transformer,cnn}.py  sequence encoders
 models/factory.py         builds the encoder selected in config.py
 models/lit_model.py       PyTorch Lightning module
@@ -81,7 +81,6 @@ Change the sweep grid in `config.py` to reproduce the ablations:
 | Encoder | `model_type`: `"lstm"`, `"transformer"`, `"cnn"` |
 | MSTE vs. outlier clipping | `use_mste`: `True` / `False` |
 | Learnable vs. fixed frequencies | `learnable_mste`: `True` / `False` |
-| Time2Vec baseline (LSTM) | `use_time2vec`: `True` |
 | Number of frequencies | `model.n_periods`: e.g. `2 … 128` |
 | Loss | `loss_type`: `"supcon"` / `"triplet"` |
 | Window length | `window_size`: e.g. `30`, `40`, `50` |

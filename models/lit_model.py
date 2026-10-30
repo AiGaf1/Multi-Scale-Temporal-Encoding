@@ -14,7 +14,6 @@ class KeystrokeLitModel(pl.LightningModule):
         loss_fn: Optional[torch.nn.Module],
         t_0: float = 2500,
         lr: float = 1e-3,
-        l1_lambda: float = 0.0,
     ):
         super().__init__()
         self.model = torch.compile(model, mode='max-autotune-no-cudagraphs')
@@ -46,12 +45,6 @@ class KeystrokeLitModel(pl.LightningModule):
         user_idx = torch.cat([u1, u2], dim=0)
 
         loss = self.loss_fn(embeddings, user_idx)
-
-        # if self.hparams.l1_lambda > 0:
-        #     amplitude = self.model._orig_mod.time_encoders.get_amplitude()
-        #     l1 = amplitude.mean()  # mean of sigmoid(a) ∈ (0,1) — L1 pushes toward 0
-        #     self.log(f"{stage}/fourier_l1", l1, on_epoch=True, on_step=False, batch_size=x1.shape[0])
-        #     loss = loss + self.hparams.l1_lambda * l1
 
         self.log(f"{stage}/loss", loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=x1.shape[0])
 
@@ -105,8 +98,6 @@ class KeystrokeLitModel(pl.LightningModule):
         return [(sid, emb.cpu()) for sid, emb in zip(session_ids, embeddings)]
 
     def on_train_start(self):
-        arcface_params = list(self.loss_fn.parameters()) if isinstance(self.loss_fn, torch.nn.Module) else []
-        print(f"ArcFace learnable params: {sum(p.numel() for p in arcface_params)}")
         if isinstance(self.logger, WandbLogger):
             self.logger.experiment.watch(self.model, log="all",
                                          log_freq=256, log_graph=True)
@@ -116,11 +107,6 @@ class KeystrokeLitModel(pl.LightningModule):
         param_groups = [
             {"params": self.model.parameters(), "lr": self.hparams.lr},
         ]
-        if isinstance(self.loss_fn, torch.nn.Module) and list(self.loss_fn.parameters()):
-            param_groups.append({
-                "params": self.loss_fn.parameters(),
-                "lr": self.hparams.lr   # 10x smaller for ArcFace W
-            })
 
         optimizer = torch.optim.AdamW(param_groups, betas=(0.95, 0.999))
 

@@ -79,7 +79,6 @@ def create_data_module(
         seed=config.seed,
         min_session_length=config.min_session_length,
         min_sessions_per_user=config.min_sessions_per_user,
-        precomputed_features=config.precomputed_features,
         clip_percentile_lo=config.clip_percentile_lo,
         clip_percentile_hi=config.clip_percentile_hi,
         use_mste=config.use_mste,
@@ -143,7 +142,7 @@ def run_experiment(config: conf.ExperimentConfig, sweep_run_id: str = None) -> N
     loss_fn = build_loss(config)
     nn_model = build_model(config, dm.min_max)
     logger.info(f"Model: {nn_model.__class__.__name__} | model_type={config.model_type} | use_mste={config.use_mste}")
-    lit_model = KeystrokeLitModel(nn_model, loss_fn, t_0=config.t_0, lr=config.lr, l1_lambda=config.l1_lambda)
+    lit_model = KeystrokeLitModel(nn_model, loss_fn, t_0=config.t_0, lr=config.lr)
 
     # 3. Training Infrastructure
     wandb_logger, run_dir = setup_wandb_logging(config=config, model_name=nn_model.__class__.__name__, run_id=sweep_run_id)

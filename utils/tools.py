@@ -2,7 +2,7 @@ import os
 import logging
 from dataclasses import asdict
 
-from pytorch_metric_learning.losses import SupConLoss, ArcFaceLoss, TripletMarginLoss
+from pytorch_metric_learning.losses import SupConLoss, TripletMarginLoss
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 from datetime import datetime
@@ -112,7 +112,7 @@ def export_to_onnx(config: ExperimentConfig,ckpt_path: str, wandb_logger: WandbL
 
     # Allow the custom classes needed for weights_only=True loading
     torch.serialization.add_safe_globals([
-        CosineSimilarity, SupConLoss, ArcFaceLoss, TripletMarginLoss,
+        CosineSimilarity, SupConLoss, TripletMarginLoss,
         MeanReducer, getattr,
     ])
 

@@ -43,19 +43,14 @@ class ExperimentConfig:
     output_size: int = 256
     use_mste: bool = True
     learnable_mste: bool = True
-    sin_only_mste: bool = False
-    mste_init_at_max: bool = False
-    use_time2vec: bool = False
 
     # Loss
-    loss_type: str = "supcon"  # "supcon" | "arcface" | "triplet"
+    loss_type: str = "supcon"  # "supcon" | "triplet"
     loss_temperature: float = 0.1
-    arcface_num_classes: int = None
 
     # Training
     epochs: int = 1000
     lr: float = 1e-3
-    l1_lambda: float = 0
     t_0: int = 2500
     batches_per_epoch_train: int = 256
     batches_per_epoch_val: int = 64
@@ -67,10 +62,9 @@ class ExperimentConfig:
     clip_percentile_hi: float = 99.99   # upper percentile for timing feature clipping
 
     # Data path
-    scenario: str = 'desktop'  # 'desktop' | 'mobile' | 'cmu'
+    scenario: str = 'desktop'  # 'desktop' | 'mobile'
     file_path: str = ''
     predict_file_path: str = ''
-    precomputed_features: bool = False  # True for CMU (features already extracted)
 
     seed: int = 42
 

@@ -43,7 +43,6 @@ def build_model(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
             use_mste=config.use_mste,
             num_layers=cfg.num_layers,
             dropout=cfg.dropout,
-            use_time2vec=config.use_time2vec,
             learnable_mste=config.learnable_mste,
         )
     else:
