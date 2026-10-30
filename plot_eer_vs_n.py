@@ -87,8 +87,8 @@ ax.set_axisbelow(True)
 ax.spines[['top', 'right']].set_visible(False)
 
 handles = [
-    Line2D([], [], color=COLORS['Desktop'], lw=1.3, marker='o', ms=4, label='Desktop'),
-    Line2D([], [], color=COLORS['Mobile'], lw=1.3, marker='o', ms=4, label='Mobile'),
+    Line2D([], [], color=COLORS['Desktop'], lw=1.6, label='Desktop'),
+    Line2D([], [], color=COLORS['Mobile'], lw=1.6, label='Mobile'),
     Line2D([], [], color='#444444', lw=1.3, marker='o', ms=4, label='Validation'),
     Line2D([], [], color='#444444', lw=1.0, ls='--', marker='s', ms=3.4,
            markerfacecolor='white', markeredgewidth=0.9, label='Training'),
