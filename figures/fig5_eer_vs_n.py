@@ -1,7 +1,7 @@
 """Reproduce Fig. 5 of the paper: training and validation EER vs. the number of MSTE frequencies N.
 
-Usage:
-    python plot_eer_vs_n.py [--out outputs/eer_vs_n.pdf]
+Usage (from the repository root):
+    python figures/fig5_eer_vs_n.py [--out outputs/eer_vs_n.pdf]
 
 The EER values are the final train/validation EERs of the N-ablation runs (LSTM, SupConLoss);
 re-running that ablation means `python train.py --n-periods N` for N in 2, 4, ..., 128.

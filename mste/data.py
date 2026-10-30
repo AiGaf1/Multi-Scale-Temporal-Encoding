@@ -1,14 +1,82 @@
+"""KVC-onGoing data: timing-feature extraction, padding, and the training / test datasets."""
 import random
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
-from data.Aalto.preprocessing import (compute_feature_min_max,
-                                      extract_features_classic, get_session_fixed_length_zero_pad_with_mask)
 import numpy as np
 
 from typing import Dict, List, Tuple, Any
 import torch
+
+def extract_timing_features(session):
+    """
+    Extract keystroke dynamics features from a session.
+    session: np.ndarray of shape (N, 3) with columns [press_time, release_time, key_code]
+    """
+
+    press = session[:, 0].astype(np.float64) / 1000.0
+    release = session[:, 1].astype(np.float64) / 1000.0
+    ascii_f = session[:, 2].astype(int)
+
+    valid_mask = (ascii_f >= 0) & (ascii_f <= 255)
+    press = press[valid_mask]
+    release = release[valid_mask]
+    ascii_f = ascii_f[valid_mask]
+
+    hold = release - press
+    flight_time = np.zeros_like(press)
+    flight_time[1:] = press[1:] - release[:-1]
+
+    return np.column_stack([hold, flight_time, ascii_f])
+
+def pad_session(session, sequence_length, start_zero=True):
+    T, D = session.shape
+    mask = np.zeros(sequence_length, dtype=np.bool_)
+
+    if T >= sequence_length:
+        start_idx = 0 if start_zero else np.random.randint(0, T - sequence_length + 1)
+        mask[:] = True
+        return session[start_idx:start_idx + sequence_length], mask
+
+    padded = np.zeros((sequence_length, D), dtype=session.dtype)
+    padded[:T] = session
+    mask[:T] = 1 #True
+    return padded, mask
+
+
+def compute_timing_ranges(dataset, precomputed: bool = False,
+                            clip_percentile_lo: float = 0.01,
+                            clip_percentile_hi: float = 99.99):
+    """
+    dataset: dictionary {user_id: {session_id: np.ndarray}}
+    Returns: dict with (min, max) per feature after percentile clipping.
+    """
+    hold_values = []
+    flight_values = []
+
+    for user_sessions in dataset.values():
+        for session in user_sessions.values():
+            feats = session if precomputed else extract_timing_features(session)
+            hold_values.append(feats[:, 0])
+            flight_values.append(feats[:, 1])
+
+    clip_dict = {}
+    for name, values in (('hold', hold_values), ('flight', flight_values)):
+        col = np.concatenate(values)
+        pos_vals = col[col > 0]
+        lo = float(np.percentile(pos_vals, clip_percentile_lo))
+        hi = float(np.percentile(col,      clip_percentile_hi))
+        min_val = max(lo, 1e-6)  # guard against zero/negative after clipping
+        max_val = hi
+
+        clip_dict[name] = {"min": min_val, "max": max_val}
+
+        print(f"{name}: min = {min_val:.6f}, max = {max_val:.6f}  "
+              f"(clipped [{clip_percentile_lo}, {clip_percentile_hi}]%)")
+
+    return clip_dict
+
 
 SessionData = np.ndarray
 UserSessionDict = Dict[Any, Dict[Any, SessionData]]
@@ -122,7 +190,7 @@ class KeystrokeDataModule(pl.LightningDataModule):
             self.train_data = {u: self.data[u] for u in self._train_users}
             self.val_data = {u: self.data[u] for u in self._val_users}
 
-            self.min_max = compute_feature_min_max(
+            self.min_max = compute_timing_ranges(
                 self.train_data,
                 precomputed=self.precomputed_features,
                 clip_percentile_lo=self.clip_percentile_lo,
@@ -131,7 +199,7 @@ class KeystrokeDataModule(pl.LightningDataModule):
 
             clip_min_max = self.min_max if not self.use_mste else None
 
-            self.ds_train = PrepareData(
+            self.ds_train = PairDataset(
                 self.train_data,
                 window_size=self.sequence_length,
                 samples_considered_per_epoch=self.batches_per_epoch_train * self.samples_per_batch_train,
@@ -139,7 +207,7 @@ class KeystrokeDataModule(pl.LightningDataModule):
                 min_max=clip_min_max,
             )
 
-            self.ds_val = PrepareData(
+            self.ds_val = PairDataset(
                 self.val_data,
                 window_size=self.sequence_length,
                 samples_considered_per_epoch=self.batches_per_epoch_val * self.samples_per_batch_val,
@@ -150,7 +218,7 @@ class KeystrokeDataModule(pl.LightningDataModule):
 
         if stage == "predict":
             pred_data = np.load(self.predict_file_path, allow_pickle=True).item()
-            self.ds_predict = PreparePredictData(pred_data, self.sequence_length)
+            self.ds_predict = TestSessionDataset(pred_data, self.sequence_length)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -184,7 +252,7 @@ class KeystrokeDataModule(pl.LightningDataModule):
         )
 
 
-class PrepareData:
+class PairDataset:
     def __init__(self, dataset, window_size, samples_considered_per_epoch, precomputed_features: bool = False, deterministic: bool = False, min_max: dict = None):
         self.len = samples_considered_per_epoch
         self.deterministic = deterministic
@@ -194,12 +262,12 @@ class PrepareData:
         for user, sessions in dataset.items():
             self.data[user] = {}
             for sid, sess in sessions.items():
-                feat = sess if precomputed_features else extract_features_classic(sess)
+                feat = sess if precomputed_features else extract_timing_features(sess)
                 if min_max is not None:
                     feat = feat.copy()
                     feat[:, 0] = np.clip(feat[:, 0], min_max['hold']['min'],   min_max['hold']['max'])
                     feat[:, 1] = np.clip(feat[:, 1], min_max['flight']['min'], min_max['flight']['max'])
-                fixed, mask = get_session_fixed_length_zero_pad_with_mask(feat, window_size)
+                fixed, mask = pad_session(feat, window_size)
                 self.data[user][sid] = (torch.from_numpy(fixed).float(), torch.from_numpy(mask))
 
         self.user_keys: list = list(self.data.keys())
@@ -259,7 +327,7 @@ class PrepareData:
             sessions = [s for s in sessions if s != exclude]
         return rng.choice(sessions)
 
-class PreparePredictData:
+class TestSessionDataset:
     def __init__(self, dataset, sequence_length):
         self.sequence_length = sequence_length
         self.data = dataset
@@ -275,8 +343,8 @@ class PreparePredictData:
         session_id = self.samples[index]
         session = self.data[session_id]
 
-        prep_session = extract_features_classic(session)
-        fix_session, mask = get_session_fixed_length_zero_pad_with_mask(
+        prep_session = extract_timing_features(session)
+        fix_session, mask = pad_session(
             prep_session,
             self.sequence_length,
             start_zero=True

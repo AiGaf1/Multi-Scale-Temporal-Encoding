@@ -12,7 +12,7 @@ wandb/
 *.ipynb
 .idea/
 .vscode/
-data/Aalto/raw/
+data/raw/
 Keystroke-XAI/
 test/
 outputs/

@@ -1,12 +1,21 @@
+"""Training: the Lightning module, its callbacks, and console / run logging."""
+import logging
+import os
+from dataclasses import asdict
+from datetime import datetime
+
 import torch
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.loggers import CSVLogger
 
-from data.Aalto.metrics import compute_eer
+from mste.config import ExperimentConfig
+from mste.metrics import compute_eer
 from typing import Any, Dict, Tuple, Optional
 
 
-class KeystrokeLitModel(pl.LightningModule):
+class VerificationModel(pl.LightningModule):
     def __init__(
         self,
         model: torch.nn.Module,
@@ -101,3 +110,54 @@ class KeystrokeLitModel(pl.LightningModule):
                 "interval": "step",
             },
         }
+
+
+def create_callbacks(scenario: str, run_dir: str = None) -> list[pl.Callback]:
+    """Create training callbacks for checkpointing and monitoring."""
+    dirpath = os.path.join(run_dir, "checkpoints") if run_dir else None
+    checkpoint_cb = ModelCheckpoint(
+        dirpath=dirpath,
+        monitor="val/eer",
+        mode="min",
+        filename=f'{scenario}' + "-{epoch:02d}-{val/eer:.2f}",
+        save_top_k=1,
+        save_last=True,
+        auto_insert_metric_name=False
+    )
+
+    lr_monitor = LearningRateMonitor(logging_interval=None)
+
+    return [checkpoint_cb, lr_monitor]
+
+
+def setup_logger(name: str = None, level=logging.INFO) -> logging.Logger:
+    """Set up and return a logger instance with a consistent format."""
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)-2s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    # Console handler
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    if not logger.handlers:
+        logger.addHandler(handler)
+        logger.propagate = False
+    return logger
+
+
+def setup_run_logging(config: ExperimentConfig, model_name: str) -> tuple[CSVLogger, str]:
+    """Log metrics to outputs/<name>/<timestamp>/metrics.csv; checkpoints and predictions go to the same folder."""
+    version = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_logger = CSVLogger(save_dir="outputs", name=config.name, version=version)
+
+    raw = asdict(config)
+    hparams = {f"model.{k}": v for k, v in raw.pop("model").items()}
+    hparams.update(raw)
+    hparams["model_name"] = model_name
+    csv_logger.log_hyperparams(hparams)
+
+    return csv_logger, csv_logger.log_dir

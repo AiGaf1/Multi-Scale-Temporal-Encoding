@@ -1,11 +1,12 @@
+"""Sequence encoders (LSTM, CNN, Transformer) that turn MSTE-encoded keystrokes into embeddings."""
 import torch.nn as nn
-import config as conf
-from models.transformer import KeystrokeTransformer
-from models.cnn import KeystrokeCNN
-from models.lstm import KeystrokeLSTM
+from mste import config as conf
+from mste.encoders.transformer import KeystrokeTransformer
+from mste.encoders.cnn import KeystrokeCNN
+from mste.encoders.lstm import KeystrokeLSTM
 
 
-def build_model(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
+def build_encoder(config: conf.ExperimentConfig, periods_dict) -> nn.Module:
     """Instantiate the model specified by config.model_type."""
     if config.model_type == "transformer":
         cfg: conf.TransformerConfig = config.model

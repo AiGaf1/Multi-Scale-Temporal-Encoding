@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from models.fourier_encoding import LearnableFourierFeatures
-from utils.metrics import norm_embeddings
+from mste.encoding import MSTE
+from mste.metrics import norm_embeddings
 
 
 class KeystrokeLSTM(nn.Module):
@@ -14,7 +14,7 @@ class KeystrokeLSTM(nn.Module):
 
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
         if use_mste:
-            self.time_encoders = LearnableFourierFeatures(
+            self.time_encoders = MSTE(
                 periods_dict, num_features=n_periods, learnable=learnable_mste,
             )
             input_size = self.time_encoders.d_out + key_emb_dim

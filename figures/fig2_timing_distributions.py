@@ -1,9 +1,9 @@
 """Reproduce Fig. 2 of the paper: hold-time and flight-time distributions, desktop vs. mobile.
 
-Usage:
-    python plot_timing_distributions.py [--out outputs/timing_distributions.pdf]
+Usage (from the repository root):
+    python figures/fig2_timing_distributions.py [--out outputs/timing_distributions.pdf]
 
-Reads the KVC-onGoing development sets from data/Aalto/raw/. Collecting the timing values
+Reads the KVC-onGoing development sets from data/raw/. Collecting the timing values
 takes a few minutes, so they are cached (unique values at 0.1 ms resolution and their counts)
 in outputs/timing_hist_cache.npz; delete that file to recompute.
 
@@ -12,13 +12,16 @@ with the paper's fonts, so a LaTeX installation with the newtx package is requir
 """
 import argparse
 import os
+import sys
+from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 
-from data.Aalto.preprocessing import extract_features_classic
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # run from anywhere
+from mste.data import extract_timing_features
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--out', default='outputs/timing_distributions.pdf', help='output PDF (a PNG is saved next to it)')
@@ -29,11 +32,11 @@ args = parser.parse_args()
 if not os.path.exists(args.cache):
     hist = {}
     for ds in ('desktop', 'mobile'):
-        raw = np.load(f'data/Aalto/raw/{ds}/{ds}_dev_set.npy', allow_pickle=True).item()
+        raw = np.load(f'data/raw/{ds}/{ds}_dev_set.npy', allow_pickle=True).item()
         hold, flight = [], []
         for sessions in raw.values():
             for sess in sessions.values():
-                f = extract_features_classic(sess)
+                f = extract_timing_features(sess)
                 hold.append(f[:, 0])
                 flight.append(f[1:, 1])   # first FT is 0 by construction
         del raw

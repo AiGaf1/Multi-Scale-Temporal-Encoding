@@ -15,17 +15,22 @@ On the official KVC-onGoing test set, LSTM + MSTE + SupCon loss reaches a global
 ## Repository layout
 
 ```
-config.py                 experiment configuration (paper defaults)
-train.py                  training, validation and test-set prediction
-models/fourier_encoding.py  MSTE (LearnableFourierFeatures)
-models/{lstm,transformer,cnn}.py  sequence encoders
-models/factory.py         builds the encoder selected in config.py
-models/lit_model.py       PyTorch Lightning module
-utils/losses.py           SupCon and triplet losses
-data/Aalto/               KVC-onGoing data loading and preprocessing
-plot_timing_distributions.py  HT/FT distributions (Fig. 2 of the paper)
-plot_mste_explanation.py  MSTE illustration from a trained checkpoint (Fig. 3)
-plot_eer_vs_n.py          EER vs. number of frequencies N (Fig. 5)
+train.py                    train and evaluate (paper configuration by default)
+mste/
+  config.py                 experiment configuration (paper defaults)
+  encoding.py               MSTE, the multi-scale temporal encoding
+  encoders/                 LSTM, CNN and Transformer sequence encoders
+  data.py                   KVC-onGoing feature extraction and datasets
+  losses.py                 SupCon and triplet losses
+  training.py               Lightning module, checkpointing and logging
+  metrics.py                embedding distances and EER
+  benchmark.py              official test comparisons in, prediction scores out
+figures/
+  fig2_timing_distributions.py
+  fig3_mste_components.py
+  fig5_eer_vs_n.py
+data/raw/                   KVC-onGoing data (not included, see below)
+outputs/                    runs, checkpoints and figures (created when you run the code)
 ```
 
 ## Setup
@@ -43,12 +48,12 @@ The experiments use the KVC-onGoing benchmark (desktop and mobile), hosted on Co
 Download the data from the challenge page and place the files as:
 
 ```
-data/Aalto/raw/desktop/desktop_dev_set.npy
-data/Aalto/raw/desktop/desktop_test_sessions.npy
-data/Aalto/raw/desktop/desktop_comparisons.txt
-data/Aalto/raw/mobile/mobile_dev_set.npy
-data/Aalto/raw/mobile/mobile_test_sessions.npy
-data/Aalto/raw/mobile/mobile_comparisons.txt
+data/raw/desktop/desktop_dev_set.npy
+data/raw/desktop/desktop_test_sessions.npy
+data/raw/desktop/desktop_comparisons.txt
+data/raw/mobile/mobile_dev_set.npy
+data/raw/mobile/mobile_test_sessions.npy
+data/raw/mobile/mobile_comparisons.txt
 ```
 
 The data is not redistributed in this repository.
@@ -61,7 +66,7 @@ python train.py
 
 trains the paper's best configuration (LSTM, MSTE with `N = 32`, SupCon loss with
 temperature 0.07, up to 50 keystrokes per session) on desktop and then mobile. Each run
-writes to `outputs/Keystroke-XAI/<timestamp>/`: training/validation metrics in
+writes to `outputs/MSTE/<timestamp>/`: training/validation metrics in
 `metrics.csv`, the best checkpoint in `checkpoints/`, and `<scenario>_predictions.txt`,
 the scores for the official test comparisons, ready for submission to the KVC-onGoing
 evaluation server.
@@ -72,12 +77,12 @@ All figure scripts write a PDF and a PNG to `outputs/` and typeset their text wi
 (the `newtx` fonts used by the paper), so a LaTeX installation is required.
 
 ```bash
-python plot_timing_distributions.py                                  # Fig. 2
-python plot_mste_explanation.py <path/to/checkpoint.ckpt> --scenario desktop   # Fig. 3
-python plot_eer_vs_n.py                                              # Fig. 5
+python figures/fig2_timing_distributions.py                          # Fig. 2
+python figures/fig3_mste_components.py <path/to/checkpoint.ckpt> --scenario desktop   # Fig. 3
+python figures/fig5_eer_vs_n.py                                      # Fig. 5
 ```
 
-Fig. 2 reads the development sets from `data/Aalto/raw/`; Fig. 5 uses the final
+Fig. 2 reads the development sets from `data/raw/`; Fig. 5 uses the final
 train/validation EERs of the N-ablation runs, listed in the script.
 
 ### Ablations

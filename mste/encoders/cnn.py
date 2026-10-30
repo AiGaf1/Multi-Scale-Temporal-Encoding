@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from models.fourier_encoding import LearnableFourierFeatures
-from utils.metrics import norm_embeddings
+from mste.encoding import MSTE
+from mste.metrics import norm_embeddings
 
 # Number of raw timing features (hold time + flight time) when not using MSTE
 RAW_TIME_FEATURES = 2
@@ -55,7 +55,7 @@ class KeystrokeCNN(nn.Module):
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
 
         if use_mste:
-            self.time_encoder = LearnableFourierFeatures(periods_dict, num_features=n_periods, learnable=learnable_mste)
+            self.time_encoder = MSTE(periods_dict, num_features=n_periods, learnable=learnable_mste)
             time_feat_dim = self.time_encoder.d_out
         else:
             self.time_encoder = None

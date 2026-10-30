@@ -18,19 +18,14 @@ from pytorch_lightning.loggers import Logger
 from pytorch_lightning.callbacks import ModelSummary
 import torch
 # 3. Local Modules (Project Specific)
-import config as conf
-from data.Aalto.dataset import KeystrokeDataModule
-from models.lit_model import KeystrokeLitModel
-from models.factory import build_model
-from utils.callbacks import create_callbacks
-from utils.losses import build_loss
-from utils.tools import (
-    load_comparisons,
-    save_predictions,
-    setup_logger,
-    setup_run_logging
-)
-from utils.metrics import compute_distances4comps, normalize_distances
+from mste import config as conf
+from mste.data import KeystrokeDataModule
+from mste.training import VerificationModel, create_callbacks
+from mste.encoders import build_encoder
+from mste.losses import build_loss
+from mste.benchmark import load_comparisons, save_predictions
+from mste.training import setup_logger, setup_run_logging
+from mste.metrics import score_comparisons, distances_to_similarities
 
 logger = setup_logger("train")
 
@@ -94,7 +89,7 @@ def create_trainer(
 
 def run_predictions(
         trainer: pl.Trainer,
-        model: KeystrokeLitModel,
+        model: VerificationModel,
         dm: KeystrokeDataModule,
         checkpoint_path: str = "best"
 ) -> dict[str, torch.Tensor]:
@@ -123,26 +118,26 @@ def run_experiment(config: conf.ExperimentConfig) -> None:
     dm = create_data_module(config.file_path, config.predict_file_path, config)
 
     loss_fn = build_loss(config)
-    nn_model = build_model(config, dm.min_max)
-    logger.info(f"Model: {nn_model.__class__.__name__} | model_type={config.model_type} | use_mste={config.use_mste}")
-    lit_model = KeystrokeLitModel(nn_model, loss_fn, t_0=config.t_0, lr=config.lr)
+    encoder = build_encoder(config, dm.min_max)
+    logger.info(f"Model: {encoder.__class__.__name__} | model_type={config.model_type} | use_mste={config.use_mste}")
+    model = VerificationModel(encoder, loss_fn, t_0=config.t_0, lr=config.lr)
 
     # 3. Training Infrastructure
-    run_logger, run_dir = setup_run_logging(config, model_name=nn_model.__class__.__name__)
+    run_logger, run_dir = setup_run_logging(config, model_name=encoder.__class__.__name__)
     callbacks = create_callbacks(config.scenario, run_dir)
     callbacks.append(ModelSummary(max_depth=4))
     trainer = create_trainer(config.epochs, run_logger, callbacks)
 
     # 4. Execution
-    trainer.fit(lit_model, datamodule=dm)
+    trainer.fit(model, datamodule=dm)
 
     # 5. Score the official test comparisons with the best checkpoint
     best_model_path = callbacks[0].best_model_path
     logger.info(f"Best checkpoint: {best_model_path}")
-    embeddings = run_predictions(trainer, lit_model, dm, best_model_path)
+    embeddings = run_predictions(trainer, model, dm, best_model_path)
     comparisons = load_comparisons(config.scenario, logger)
-    distances = compute_distances4comps(embeddings, comparisons)
-    similarities = normalize_distances(distances)
+    distances = score_comparisons(embeddings, comparisons)
+    similarities = distances_to_similarities(distances)
     save_predictions(similarities, config.scenario, run_dir, logger)
 
 

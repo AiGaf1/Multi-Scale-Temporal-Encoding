@@ -1,9 +1,9 @@
-"""Loss function factory — mirrors models/factory.py pattern."""
+"""Metric-learning losses: SupCon and triplet."""
 from pytorch_metric_learning import distances
 from pytorch_metric_learning.losses import SupConLoss, TripletMarginLoss
 from torch import nn
 
-import config as conf
+from mste import config as conf
 
 
 def build_loss(config: conf.ExperimentConfig) -> nn.Module:

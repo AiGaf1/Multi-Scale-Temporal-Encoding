@@ -4,7 +4,7 @@ import torch
 import math
 
 
-class LearnableFourierFeatures(nn.Module):
+class MSTE(nn.Module):
     def __init__(self, feature_dict: dict, num_features: int, learnable: bool = True):
         """
         feature_dict: dict where key=feature_name, value={"min": float, "max": float}

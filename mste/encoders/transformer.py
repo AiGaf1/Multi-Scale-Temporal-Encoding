@@ -1,8 +1,8 @@
 
 import torch
 import torch.nn as nn
-from models.fourier_encoding import LearnableFourierFeatures
-from utils.metrics import norm_embeddings
+from mste.encoding import MSTE
+from mste.metrics import norm_embeddings
 
 class KeystrokeTransformer(nn.Module):
     def __init__(self, periods_dict, output_size=512, hidden_size=256,
@@ -16,7 +16,7 @@ class KeystrokeTransformer(nn.Module):
 
         self.key_embedding = nn.Embedding(vocab_size, key_emb_dim)
         if use_mste:
-            self.time_encoders = LearnableFourierFeatures(periods_dict, num_features=n_periods, learnable=learnable_mste)
+            self.time_encoders = MSTE(periods_dict, num_features=n_periods, learnable=learnable_mste)
             input_size = self.time_encoders.d_out + key_emb_dim
         else:
             input_size = 2 + key_emb_dim  # raw hold + flight

@@ -28,7 +28,7 @@ class LSTMConfig:
 
 @dataclass
 class ExperimentConfig:
-    name: str = "Keystroke-XAI"
+    name: str = "MSTE"
 
     # Data
     window_size: int = 50
@@ -69,7 +69,7 @@ class ExperimentConfig:
     seed: int = 42
 
     def __post_init__(self):
-        data_dir = f'data/Aalto/raw/{self.scenario}'
+        data_dir = f'data/raw/{self.scenario}'
         if not self.file_path:
             self.file_path = f'{data_dir}/{self.scenario}_dev_set.npy'
         if not self.predict_file_path:

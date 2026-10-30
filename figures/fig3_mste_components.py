@@ -1,7 +1,7 @@
 """Reproduce Fig. 3 of the paper: MSTE applied to a 50-keystroke flight-time sequence.
 
-Usage:
-    python plot_mste_explanation.py <checkpoint.ckpt> [--scenario desktop] [--user 0] [--session 0]
+Usage (from the repository root):
+    python figures/fig3_mste_components.py <checkpoint.ckpt> [--scenario desktop] [--user 0] [--session 0]
                                     [--out outputs/mste_flight_explanation.pdf]
 
 The figure is drawn at its printed size (LNCS text width) and its text is typeset by
@@ -9,6 +9,8 @@ LaTeX with the paper's fonts, so a LaTeX installation with the newtx package is 
 """
 import argparse
 import os
+import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -16,7 +18,8 @@ import numpy as np
 import torch
 from matplotlib.lines import Line2D
 
-from data.Aalto.preprocessing import extract_features_classic
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # run from anywhere
+from mste.data import extract_timing_features
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('checkpoint', help='Lightning checkpoint of an MSTE model')
@@ -44,10 +47,10 @@ eff_freq    = freq * scales           # omega_j, eq. (3)
 eff_periods = 2 * np.pi / eff_freq    # learned period p_j, in seconds
 
 # -- One real session, first 50 keystrokes -------------------------------------
-raw  = np.load(f'data/Aalto/raw/{args.scenario}/{args.scenario}_dev_set.npy', allow_pickle=True).item()
+raw  = np.load(f'data/raw/{args.scenario}/{args.scenario}_dev_set.npy', allow_pickle=True).item()
 user = list(raw.keys())[args.user]
 sess = raw[user][list(raw[user].keys())[args.session]]
-ft_raw = extract_features_classic(sess)[:50, 1]
+ft_raw = extract_timing_features(sess)[:50, 1]
 
 n = len(ft_raw)
 t = np.arange(n)
