@@ -23,7 +23,9 @@ models/factory.py         builds the encoder selected in config.py
 models/lit_model.py       PyTorch Lightning module
 utils/losses.py           SupCon and triplet losses
 data/Aalto/               KVC-onGoing data loading and preprocessing
-plot_mste_explanation.py  reproduces the MSTE illustration (Fig. 3 of the paper)
+plot_timing_distributions.py  HT/FT distributions (Fig. 2 of the paper)
+plot_mste_explanation.py  MSTE illustration from a trained checkpoint (Fig. 3)
+plot_eer_vs_n.py          EER vs. number of frequencies N (Fig. 5)
 ```
 
 ## Setup
@@ -72,14 +74,19 @@ After training, the best checkpoint scores the official test comparisons and wri
 `<scenario>_predictions.txt` to the run directory, ready for submission to the
 KVC-onGoing evaluation server.
 
-### Fig. 3
+### Figures
+
+All figure scripts write a PDF and a PNG to `outputs/` and typeset their text with LaTeX
+(the `newtx` fonts used by the paper), so a LaTeX installation is required.
 
 ```bash
-python plot_mste_explanation.py <path/to/checkpoint.ckpt> --scenario desktop
+python plot_timing_distributions.py                                  # Fig. 2
+python plot_mste_explanation.py <path/to/checkpoint.ckpt> --scenario desktop   # Fig. 3
+python plot_eer_vs_n.py                                              # Fig. 5
 ```
 
-plots the learned MSTE components for one development-set session and writes
-`outputs/mste_flight_explanation.{pdf,png}`.
+Fig. 2 reads the development sets from `data/Aalto/raw/`; Fig. 5 uses the final
+train/validation EERs of the N-ablation runs, listed in the script.
 
 ### Ablations
 
